@@ -6,6 +6,12 @@
 
 It uses **Wayland layer-shell** through `gtk4-layer-shell`, making it especially suitable for Wayland compositors such as **Hyprland**.
 
+## 🖼️ Screenshot
+
+<p align="center">
+  <img src="assets/s1.png" alt="Raix Launcher" width="850">
+</p>
+
 ---
 
 ## ✨ Features
@@ -33,6 +39,12 @@ It uses **Wayland layer-shell** through `gtk4-layer-shell`, making it especially
 </p>
 
 ---
+
+## 🖼️ Screenshot
+
+<p align="center">
+  <img src="assets/s1.png" alt="Raix Launcher" width="850">
+</p>
 
 ## 🧰 Requirements
 
