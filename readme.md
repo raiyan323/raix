@@ -1,65 +1,60 @@
 # Raix
 
-> ⚡ A fast, minimal, hacker-style application launcher for Wayland.
+> ⚡ A fast, minimal, keyboard-first application launcher for Wayland.
 
-**Raix** is a lightweight application launcher written in Rust, designed for Linux users who love the terminal, keyboard-driven workflows, and a cyberpunk aesthetic.
+**Raix** is a lightweight application launcher written in **Rust + GTK4**, designed for Linux users who prefer fast, keyboard-driven workflows.
 
-Built for **Wayland** and especially suited for compositors such as **Hyprland**.
+It uses **Wayland layer-shell** through `gtk4-layer-shell`, making it especially suitable for Wayland compositors such as **Hyprland**.
 
 ---
 
 ## ✨ Features
 
-- ⚡ Fast fuzzy application search
-- 🧠 Keyboard-driven workflow
-- 🐧 Linux / Wayland native
-- 🎨 Fully configurable colors and layout
-- 🖼️ Application icons
-- 🔍 Fuzzy matching
-- 🪶 Lightweight Rust implementation
-- 🚀 Lazy icon loading
-- 🔒 Single-instance protection
-- 🖥️ Terminal application support
+- ⚡ Fast application launcher
+- 🔍 Fuzzy application search
+- ⌨️ Keyboard-first workflow
+- 🐧 Native Wayland support
 - 🎯 `wlr-layer-shell` integration
+- 🎨 TOML-based configuration
+- 🖼️ Application icons
+- 📝 Application descriptions
+- 🚀 Lightweight Rust implementation
+- ⬆️⬇️ Navigate results while keeping search focus
+- ↵ Launch applications with Enter
+- `Esc` closes the launcher
+- 📦 Arch Linux / PKGBUILD support
 
 ---
 
 ## 🖼️ Screenshot
 
-> Add a screenshot here.
-
-```text
-┌────────────────────────────────────────────────────────────┐
-│  > Search applications                                     │
-│                                                            │
-│  ▌   Alacritty                                            │
-│      NetworkManager                                       │
-│      Visual Studio Code                                   │
-│      Foot                                                 │
-│                                                            │
-│  ↑ ↓ Navigate    Enter Launch    Esc Close                │
-└────────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="assets/screenshot.png" alt="Raix Launcher" width="850">
+</p>
 
 ---
 
-# 📦 Arch Linux
+## 🧰 Requirements
 
-## Requirements
-
-Raix requires:
-
-- Arch Linux
+- Linux
+- Wayland
+- A Wayland compositor
+- `wlr-layer-shell` support
 - Rust
 - Cargo
-- Wayland
-- A Wayland compositor with `wlr-layer-shell` support
-- `base-devel`
+- GTK4
+- `gtk4-layer-shell`
 
-Install the required build tools:
+---
+
+## 📦 Arch Linux
+
+Raix includes a `PKGBUILD`, so Arch users can build and install it directly.
+
+### Install dependencies
 
 ```bash
-sudo pacman -S --needed base-devel rust cargo wayland wayland-protocols
+sudo pacman -S --needed base-devel rust cargo gtk4 gtk4-layer-shell wayland wayland-protocols pkgconf
 ```
 
 Depending on your system and dependencies, you may also need:
@@ -75,7 +70,7 @@ sudo pacman -S --needed pkgconf libxkbcommon
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/raix.git
+git clone https://github.com/raiyan323/raix.git
 ```
 
 Enter the project directory:
@@ -145,43 +140,40 @@ vim ~/.config/raix/config.toml
 Example:
 
 ```toml
-width = 720
+width = 760
 height = 520
 
-anchor = "center"
-margin_top = 80
+background = "rgba(20, 20, 28, 0.97)"
 
-padding = 20
-row_height = 44
-max_results = 12
+text_color = "#eeeeee"
+comment_color = "#858591"
 
-corner_radius = 20
+selected_color = "rgba(110, 140, 255, 0.22)"
+hover_color = "rgba(255, 255, 255, 0.07)"
+border_color = "rgba(255, 255, 255, 0.10)"
+
+border_radius = 18
 border_width = 1
 
+font = "JetBrainsMono Nerd Font"
+
+app_font_size = 15
+comment_font_size = 11
+search_font_size = 17
+
+search_placeholder = "Search applications..."
+
 show_icons = true
-icon_size = 30
-icon_gap = 14
+show_comments = true
 
-font_path = ""
+icon_size = 42
 
-font_size = 17.0
-prompt_font_size = 22.0
+row_radius = 12
+row_margin = 2
 
-background = "#070b12"
-opacity = 0.94
-
-foreground = "#b8c7d9"
-prompt_color = "#67e8f9"
-
-selected_bg = "#102a3a"
-selected_fg = "#e6fbff"
-
-border_color = "#22d3ee"
-search_background = "#0b1622"
-
-show_hint = true
-
-terminal = "foot"
+search_background = "rgba(255, 255, 255, 0.07)"
+search_border_color = "rgba(255, 255, 255, 0.08)"
+search_focus_border_color = "rgba(130, 170, 255, 0.65)"
 ```
 
 > Restart Raix after changing the configuration.
