@@ -94,7 +94,9 @@ impl Default for Config {
             height: 520,
 
             background: "rgba(20, 20, 28, 0.97)".to_string(),
+
             text_color: "#eeeeee".to_string(),
+
             comment_color: "#858591".to_string(),
 
             selected_color:
@@ -110,6 +112,7 @@ impl Default for Config {
                     .to_string(),
 
             border_radius: 18,
+
             border_width: 1,
 
             font:
@@ -117,7 +120,9 @@ impl Default for Config {
                     .to_string(),
 
             app_font_size: 15,
+
             comment_font_size: 11,
+
             search_font_size: 17,
 
             search_placeholder:
@@ -125,10 +130,13 @@ impl Default for Config {
                     .to_string(),
 
             show_icons: true,
+
             show_comments: true,
+
             icon_size: 42,
 
             row_radius: 12,
+
             row_margin: 2,
 
             search_background:
@@ -151,10 +159,9 @@ impl Default for Config {
 // ============================================================
 
 fn config_path() -> PathBuf {
-    let home =
-        std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
 
     home.join(".config")
         .join("raixlauncher")
@@ -169,9 +176,7 @@ fn load_config() -> Config {
     let path = config_path();
 
     if let Some(parent) = path.parent() {
-        if let Err(error) =
-            std::fs::create_dir_all(parent)
-        {
+        if let Err(error) = std::fs::create_dir_all(parent) {
             eprintln!(
                 "RaixLauncher: cannot create config directory: {}",
                 error
@@ -288,7 +293,6 @@ fn build_ui(app: &Application) {
         Some("raix-launcher"),
     );
 
-    // Floating centered surface.
     window.set_anchor(
         gtk4_layer_shell::Edge::Top,
         false,
@@ -602,13 +606,7 @@ fn build_ui(app: &Application) {
     }
 
     // ========================================================
-    // SEARCH
-    //
-    // IMPORTANT:
-    //
-    // Search Entry remains focused.
-    // Arrow keys ONLY change selection.
-    // We NEVER call row.grab_focus().
+    // SEARCH / FILTER
     // ========================================================
 
     {
@@ -704,12 +702,44 @@ fn build_ui(app: &Application) {
                     );
                 }
 
-                // Explicitly keep Entry active.
+                // Keep Entry focused.
                 entry.grab_focus();
 
-                // Put caret at end.
-                entry.set_position(
-                    -1,
+                // Keep cursor at end.
+                entry.set_position(-1);
+            },
+        );
+    }
+
+    // ========================================================
+    // ENTER
+    //
+    // IMPORTANT:
+    //
+    // DO NOT handle Enter inside EventControllerKey.
+    //
+    // GtkEntry already has the "activate" signal.
+    // Pressing Enter inside the search box triggers it.
+    //
+    // This avoids breaking normal Entry keyboard handling.
+    // ========================================================
+
+    {
+        let list_for_enter =
+            list.clone();
+
+        let current_apps_for_enter =
+            current_apps.clone();
+
+        let window_for_enter =
+            window.clone();
+
+        search.connect_activate(
+            move |_| {
+                launch_selected(
+                    &list_for_enter,
+                    &current_apps_for_enter,
+                    &window_for_enter,
                 );
             },
         );
@@ -718,17 +748,11 @@ fn build_ui(app: &Application) {
     // ========================================================
     // KEYBOARD CONTROLLER
     //
-    // IMPORTANT:
+    // ONLY navigation keys are intercepted here.
     //
-    // Controller is attached ONLY to Entry.
+    // Normal typing is passed to GtkEntry.
     //
-    // This means:
-    //
-    // Text keys -> Entry handles them normally.
-    //
-    // Up/Down -> selection changes.
-    //
-    // Entry NEVER loses focus.
+    // Enter is NOT intercepted here.
     // ========================================================
 
     {
@@ -741,9 +765,6 @@ fn build_ui(app: &Application) {
         let list_for_keys =
             list.clone();
 
-        let current_apps_for_keys =
-            current_apps.clone();
-
         let scroll_for_keys =
             scroll.clone();
 
@@ -754,26 +775,11 @@ fn build_ui(app: &Application) {
             move |_, key, _, _| {
                 match key {
                     // ==================================================
-                    // ESCAPE
+                    // ESC
                     // ==================================================
 
                     gdk::Key::Escape => {
                         window_for_keys.close();
-
-                        gtk4::glib::Propagation::Stop
-                    }
-
-                    // ==================================================
-                    // ENTER
-                    // ==================================================
-
-                    gdk::Key::Return
-                    | gdk::Key::KP_Enter => {
-                        launch_selected(
-                            &list_for_keys,
-                            &current_apps_for_keys,
-                            &window_for_keys,
-                        );
 
                         gtk4::glib::Propagation::Stop
                     }
@@ -789,10 +795,11 @@ fn build_ui(app: &Application) {
                             1,
                         );
 
-                        // VERY IMPORTANT:
-                        // Entry gets focus again.
                         search_for_keys
                             .grab_focus();
+
+                        search_for_keys
+                            .set_position(-1);
 
                         gtk4::glib::Propagation::Stop
                     }
@@ -811,6 +818,9 @@ fn build_ui(app: &Application) {
                         search_for_keys
                             .grab_focus();
 
+                        search_for_keys
+                            .set_position(-1);
+
                         gtk4::glib::Propagation::Stop
                     }
 
@@ -827,6 +837,9 @@ fn build_ui(app: &Application) {
 
                         search_for_keys
                             .grab_focus();
+
+                        search_for_keys
+                            .set_position(-1);
 
                         gtk4::glib::Propagation::Stop
                     }
@@ -845,15 +858,26 @@ fn build_ui(app: &Application) {
                         search_for_keys
                             .grab_focus();
 
+                        search_for_keys
+                            .set_position(-1);
+
                         gtk4::glib::Propagation::Stop
                     }
 
                     // ==================================================
-                    // ALL OTHER KEYS
+                    // EVERYTHING ELSE
                     //
-                    // DO NOT STOP.
+                    // CRITICAL:
                     //
-                    // GTK Entry must receive normal typing.
+                    // We return Proceed.
+                    //
+                    // Therefore:
+                    //
+                    // a -> Entry receives a
+                    // b -> Entry receives b
+                    // c -> Entry receives c
+                    // Enter -> Entry activate signal
+                    // Backspace -> Entry handles it
                     // ==================================================
 
                     _ => {
@@ -863,7 +887,6 @@ fn build_ui(app: &Application) {
             },
         );
 
-        // Attach controller AFTER all clones are created.
         search.add_controller(
             controller,
         );
@@ -871,6 +894,8 @@ fn build_ui(app: &Application) {
 
     // ========================================================
     // ROW ACTIVATION
+    //
+    // Double click / row activation also launches.
     // ========================================================
 
     {
@@ -910,8 +935,7 @@ fn build_ui(app: &Application) {
     // ========================================================
     // KEEP ENTRY FOCUSED
     //
-    // If ListBox internally tries to focus something,
-    // restore Entry focus after selection changes.
+    // Selection changes must NOT steal keyboard focus.
     // ========================================================
 
     {
@@ -922,6 +946,9 @@ fn build_ui(app: &Application) {
             move |_| {
                 search_focus
                     .grab_focus();
+
+                search_focus
+                    .set_position(-1);
             },
         );
     }
@@ -932,10 +959,10 @@ fn build_ui(app: &Application) {
 
     window.present();
 
-    // Initial focus.
+    // Initial Entry focus.
     search.grab_focus();
 
-    // Cursor at beginning/end depending GTK.
+    // Cursor at end.
     search.set_position(-1);
 }
 
@@ -977,13 +1004,6 @@ fn launch_selected(
 
 // ============================================================
 // MOVE SELECTION + AUTO SCROLL
-//
-// NO row.grab_focus() HERE.
-//
-// Entry remains keyboard focus.
-//
-// We manually move ScrolledWindow adjustment so selected
-// row is always visible.
 // ============================================================
 
 fn move_selection(
@@ -1021,31 +1041,34 @@ fn move_selection(
         return;
     };
 
-    // Change selection only.
+    // ========================================================
+    // SELECT ROW
+    // ========================================================
+
     list.select_row(
         Some(&row),
     );
 
-    // --------------------------------------------------------
+    // ========================================================
     // AUTO SCROLL
     //
-    // GTK4 ListBox has no scroll_to_row().
+    // ListBox does not have scroll_to_row() in GTK4.
     //
-    // So use the vertical adjustment directly.
-    // --------------------------------------------------------
+    // Therefore manipulate the ScrolledWindow adjustment.
+    // ========================================================
 
     let adjustment =
         scroll.vadjustment();
 
-    let row_allocation =
+    let allocation =
         row.allocation();
 
     let row_top =
-        row_allocation.y() as f64;
+        allocation.y() as f64;
 
     let row_bottom =
         row_top
-            + row_allocation.height()
+            + allocation.height()
                 as f64;
 
     let current_value =
@@ -1144,8 +1167,11 @@ fn create_app_row(
         );
 
     wrapper.set_margin_start(8);
+
     wrapper.set_margin_end(8);
+
     wrapper.set_margin_top(5);
+
     wrapper.set_margin_bottom(5);
 
     // ========================================================
@@ -1172,7 +1198,7 @@ fn create_app_row(
     }
 
     // ========================================================
-    // TEXT
+    // TEXT BOX
     // ========================================================
 
     let text_box =
@@ -1186,6 +1212,10 @@ fn create_app_row(
     );
 
     text_box.set_hexpand(true);
+
+    // ========================================================
+    // APP NAME
+    // ========================================================
 
     let name =
         Label::new(
@@ -1653,7 +1683,7 @@ fn fuzzy_score(
         return Some(0);
     }
 
-    // Best match: exact substring.
+    // Exact substring = strongest match.
     if let Some(position) =
         text.find(query)
     {
@@ -1664,14 +1694,18 @@ fn fuzzy_score(
     }
 
     let query_chars =
-        query.chars().collect::<Vec<_>>();
+        query
+            .chars()
+            .collect::<Vec<_>>();
 
     if query_chars.is_empty() {
         return Some(0);
     }
 
     let text_chars =
-        text.chars().collect::<Vec<_>>();
+        text
+            .chars()
+            .collect::<Vec<_>>();
 
     let mut query_index =
         0usize;
@@ -1704,7 +1738,7 @@ fn fuzzy_score(
                 score += 100;
             }
 
-            // Bonus for word boundary.
+            // Word boundary bonus.
             if index > 0 {
                 let previous =
                     text_chars[index - 1];
@@ -1720,6 +1754,7 @@ fn fuzzy_score(
             }
 
             consecutive += 1;
+
             query_index += 1;
         } else {
             consecutive = 0;
