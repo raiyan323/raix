@@ -93,37 +93,23 @@ impl Default for Config {
             width: 760,
             height: 520,
 
-            background:
-                "rgba(20, 20, 28, 0.97)"
-                    .to_string(),
+            background: "rgba(20, 20, 28, 0.97)".to_string(),
 
-            text_color:
-                "#eeeeee"
-                    .to_string(),
+            text_color: "#eeeeee".to_string(),
 
-            comment_color:
-                "#858591"
-                    .to_string(),
+            comment_color: "#858591".to_string(),
 
-            selected_color:
-                "rgba(110, 140, 255, 0.22)"
-                    .to_string(),
+            selected_color: "rgba(110, 140, 255, 0.22)".to_string(),
 
-            hover_color:
-                "rgba(255, 255, 255, 0.07)"
-                    .to_string(),
+            hover_color: "rgba(255, 255, 255, 0.07)".to_string(),
 
-            border_color:
-                "rgba(255, 255, 255, 0.10)"
-                    .to_string(),
+            border_color: "rgba(255, 255, 255, 0.10)".to_string(),
 
             border_radius: 18,
 
             border_width: 1,
 
-            font:
-                "JetBrainsMono Nerd Font"
-                    .to_string(),
+            font: "JetBrainsMono Nerd Font".to_string(),
 
             app_font_size: 15,
 
@@ -131,9 +117,7 @@ impl Default for Config {
 
             search_font_size: 17,
 
-            search_placeholder:
-                "Search applications..."
-                    .to_string(),
+            search_placeholder: "Search applications...".to_string(),
 
             show_icons: true,
 
@@ -145,17 +129,12 @@ impl Default for Config {
 
             row_margin: 2,
 
-            search_background:
-                "rgba(255, 255, 255, 0.07)"
-                    .to_string(),
+            search_background: "rgba(255, 255, 255, 0.07)".to_string(),
 
-            search_border_color:
-                "rgba(255, 255, 255, 0.08)"
-                    .to_string(),
+            search_border_color: "rgba(255, 255, 255, 0.08)".to_string(),
 
             search_focus_border_color:
-                "rgba(130, 170, 255, 0.65)"
-                    .to_string(),
+                "rgba(130, 170, 255, 0.65)".to_string(),
         }
     }
 }
@@ -182,11 +161,9 @@ fn load_config() -> Config {
     let path = config_path();
 
     if let Some(parent) = path.parent() {
-        if let Err(error) =
-            std::fs::create_dir_all(parent)
-        {
+        if let Err(error) = std::fs::create_dir_all(parent) {
             eprintln!(
-                "RaixLauncher: cannot create config directory: {}",
+                "raix: cannot create config directory: {}",
                 error
             );
         }
@@ -197,11 +174,9 @@ fn load_config() -> Config {
 
         match toml::to_string_pretty(&config) {
             Ok(data) => {
-                if let Err(error) =
-                    std::fs::write(&path, data)
-                {
+                if let Err(error) = std::fs::write(&path, data) {
                     eprintln!(
-                        "RaixLauncher: cannot create config: {}",
+                        "raix: cannot create config: {}",
                         error
                     );
                 }
@@ -209,7 +184,7 @@ fn load_config() -> Config {
 
             Err(error) => {
                 eprintln!(
-                    "RaixLauncher: cannot serialize config: {}",
+                    "raix: cannot serialize config: {}",
                     error
                 );
             }
@@ -225,7 +200,7 @@ fn load_config() -> Config {
 
                 Err(error) => {
                     eprintln!(
-                        "RaixLauncher: config error: {}",
+                        "raix: config error: {}",
                         error
                     );
 
@@ -236,7 +211,7 @@ fn load_config() -> Config {
 
         Err(error) => {
             eprintln!(
-                "RaixLauncher: cannot read config: {}",
+                "raix: cannot read config: {}",
                 error
             );
 
@@ -251,33 +226,23 @@ fn load_config() -> Config {
 
 fn main() {
     let app = Application::builder()
-        .application_id(
-            "com.raiyan.raixlauncher",
-        )
+        .application_id("com.raiyan.raix")
         .build();
-
-    /*
-     * IMPORTANT
-     *
-     * GTK Application is unique by default.
-     *
-     * Running:
-     *
-     *     raix
-     *     raix
-     *
-     * does NOT necessarily create two independent GTK
-     * applications.
-     *
-     * The second invocation activates this application.
-     *
-     * Therefore build_ui() must NOT blindly create a new
-     * window every time.
-     */
 
     app.connect_activate(build_ui);
 
     app.run();
+}
+
+// ============================================================
+// SHOW LAUNCHER
+// ============================================================
+
+fn show_launcher(
+    window: &ApplicationWindow,
+) {
+    window.show();
+    window.present();
 }
 
 // ============================================================
@@ -286,51 +251,45 @@ fn main() {
 
 fn build_ui(app: &Application) {
     // ========================================================
-    // SINGLE INSTANCE WINDOW CHECK
+    // IMPORTANT:
     //
-    // This is the important fix for:
+    // GTK may call activate again.
     //
-    // Super + Space
-    // Super + Space
-    // Super + Space
-    //
-    // without creating multiple windows.
+    // Never create another window if one already exists.
     // ========================================================
 
-    if let Some(existing_window) =
-        app.windows().first()
-    {
-        existing_window.present();
+    if let Some(existing) = app.windows().first() {
+        if let Some(window) =
+            existing.downcast_ref::<ApplicationWindow>()
+        {
+            show_launcher(window);
+        }
 
         return;
     }
 
     let config = load_config();
 
-    let applications =
-        Rc::new(load_desktop_apps());
+    let applications = Rc::new(load_desktop_apps());
 
     // ========================================================
     // WINDOW
     // ========================================================
 
-    let window =
-        ApplicationWindow::builder()
-            .application(app)
-            .title("Raix Launcher")
-            .decorated(false)
-            .resizable(false)
-            .build();
+    let window = ApplicationWindow::builder()
+        .application(app)
+        .title("Raix")
+        .decorated(false)
+        .resizable(false)
+        .build();
 
     // ========================================================
-    // WAYLAND LAYER SHELL
+    // LAYER SHELL
     // ========================================================
 
     window.init_layer_shell();
 
-    window.set_layer(
-        Layer::Overlay,
-    );
+    window.set_layer(Layer::Overlay);
 
     window.set_keyboard_mode(
         KeyboardMode::Exclusive,
@@ -339,10 +298,10 @@ fn build_ui(app: &Application) {
     window.set_exclusive_zone(-1);
 
     window.set_namespace(
-        Some("raix-launcher"),
+        Some("raix"),
     );
 
-    // Center floating surface.
+    // Center the surface.
     window.set_anchor(
         gtk4_layer_shell::Edge::Top,
         false,
@@ -367,8 +326,7 @@ fn build_ui(app: &Application) {
     // CSS
     // ========================================================
 
-    let css =
-        CssProvider::new();
+    let css = CssProvider::new();
 
     let css_data = format!(
         r#"
@@ -518,51 +476,30 @@ fn build_ui(app: &Application) {
                 8px;
         }}
         "#,
-        font =
-            config.font,
-        background =
-            config.background,
-        border_width =
-            config.border_width,
-        border_color =
-            config.border_color,
-        border_radius =
-            config.border_radius,
-        text_color =
-            config.text_color,
-        search_background =
-            config.search_background,
-        search_border_color =
-            config.search_border_color,
+        font = config.font,
+        background = config.background,
+        border_width = config.border_width,
+        border_color = config.border_color,
+        border_radius = config.border_radius,
+        text_color = config.text_color,
+        search_background = config.search_background,
+        search_border_color = config.search_border_color,
         search_focus_border_color =
             config.search_focus_border_color,
-        search_font_size =
-            config.search_font_size,
-        row_radius =
-            config.row_radius,
-        row_margin =
-            config.row_margin,
-        hover_color =
-            config.hover_color,
-        selected_color =
-            config.selected_color,
-        app_font_size =
-            config.app_font_size,
-        comment_color =
-            config.comment_color,
-        comment_font_size =
-            config.comment_font_size,
-        icon_size =
-            config.icon_size,
+        search_font_size = config.search_font_size,
+        row_radius = config.row_radius,
+        row_margin = config.row_margin,
+        hover_color = config.hover_color,
+        selected_color = config.selected_color,
+        app_font_size = config.app_font_size,
+        comment_color = config.comment_color,
+        comment_font_size = config.comment_font_size,
+        icon_size = config.icon_size,
     );
 
-    css.load_from_data(
-        &css_data,
-    );
+    css.load_from_data(&css_data);
 
-    if let Some(display) =
-        gdk::Display::default()
-    {
+    if let Some(display) = gdk::Display::default() {
         gtk4::style_context_add_provider_for_display(
             &display,
             &css,
@@ -574,11 +511,10 @@ fn build_ui(app: &Application) {
     // MAIN CONTAINER
     // ========================================================
 
-    let container =
-        GtkBox::new(
-            Orientation::Vertical,
-            10,
-        );
+    let container = GtkBox::new(
+        Orientation::Vertical,
+        10,
+    );
 
     container.set_width_request(
         config.width,
@@ -593,11 +529,10 @@ fn build_ui(app: &Application) {
     );
 
     // ========================================================
-    // SEARCH ENTRY
+    // SEARCH
     // ========================================================
 
-    let search =
-        Entry::new();
+    let search = Entry::new();
 
     search.set_placeholder_text(
         Some(
@@ -621,8 +556,7 @@ fn build_ui(app: &Application) {
     // LIST
     // ========================================================
 
-    let list =
-        ListBox::new();
+    let list = ListBox::new();
 
     list.set_selection_mode(
         gtk4::SelectionMode::Single,
@@ -636,18 +570,17 @@ fn build_ui(app: &Application) {
         false,
     );
 
-    let scroll =
-        ScrolledWindow::builder()
-            .child(&list)
-            .vexpand(true)
-            .hexpand(true)
-            .hscrollbar_policy(
-                gtk4::PolicyType::Never,
-            )
-            .vscrollbar_policy(
-                gtk4::PolicyType::Automatic,
-            )
-            .build();
+    let scroll = ScrolledWindow::builder()
+        .child(&list)
+        .vexpand(true)
+        .hexpand(true)
+        .hscrollbar_policy(
+            gtk4::PolicyType::Never,
+        )
+        .vscrollbar_policy(
+            gtk4::PolicyType::Automatic,
+        )
+        .build();
 
     container.append(
         &scroll,
@@ -658,11 +591,10 @@ fn build_ui(app: &Application) {
     );
 
     // ========================================================
-    // CURRENT FILTERED APPS
+    // CURRENT APPS
     // ========================================================
 
-    let current_apps:
-        Rc<RefCell<Vec<AppInfo>>> =
+    let current_apps =
         Rc::new(
             RefCell::new(
                 applications
@@ -690,12 +622,11 @@ fn build_ui(app: &Application) {
     }
 
     // ========================================================
-    // SEARCH / FILTER
+    // SEARCH FILTER
     // ========================================================
 
     {
-        let list =
-            list.clone();
+        let list = list.clone();
 
         let applications =
             applications.clone();
@@ -754,9 +685,7 @@ fn build_ui(app: &Application) {
 
                         scored.sort_by(
                             |a, b| {
-                                b.0.cmp(
-                                    &a.0,
-                                )
+                                b.0.cmp(&a.0)
                             },
                         );
 
@@ -786,30 +715,15 @@ fn build_ui(app: &Application) {
                     );
                 }
 
-                /*
-                 * IMPORTANT:
-                 *
-                 * Keep Entry focused.
-                 *
-                 * Do NOT focus ListBox rows.
-                 */
-
                 entry.grab_focus();
 
-                entry.set_position(
-                    -1,
-                );
+                entry.set_position(-1);
             },
         );
     }
 
     // ========================================================
     // ENTER
-    //
-    // GTK Entry activate signal.
-    //
-    // We intentionally do NOT intercept Return inside
-    // EventControllerKey.
     // ========================================================
 
     {
@@ -834,17 +748,15 @@ fn build_ui(app: &Application) {
     }
 
     // ========================================================
-    // KEYBOARD CONTROLLER
-    //
-    // ONLY navigation / escape keys are handled.
-    //
-    // Normal typing proceeds to GtkEntry.
+    // KEYBOARD
     // ========================================================
 
     {
         let controller =
             EventControllerKey::new();
 
+        // IMPORTANT:
+        // Clone search before moving it into closure.
         let search_for_keys =
             search.clone();
 
@@ -860,29 +772,19 @@ fn build_ui(app: &Application) {
         controller.connect_key_pressed(
             move |_, key, _, _| {
                 match key {
-                    // ==========================================
-                    // ESCAPE
-                    // ==========================================
+                    // =========================================
+                    // ESC
+                    // =========================================
 
                     gdk::Key::Escape => {
-                        /*
-                         * Do NOT destroy the GTK window.
-                         *
-                         * Hide it instead.
-                         *
-                         * This is what makes the launcher
-                         * reusable and prevents multiple
-                         * windows when Hyprland invokes it.
-                         */
-
                         window_for_keys.hide();
 
                         gtk4::glib::Propagation::Stop
                     }
 
-                    // ==========================================
+                    // =========================================
                     // DOWN
-                    // ==========================================
+                    // =========================================
 
                     gdk::Key::Down => {
                         move_selection(
@@ -900,9 +802,9 @@ fn build_ui(app: &Application) {
                         gtk4::glib::Propagation::Stop
                     }
 
-                    // ==========================================
+                    // =========================================
                     // UP
-                    // ==========================================
+                    // =========================================
 
                     gdk::Key::Up => {
                         move_selection(
@@ -920,9 +822,9 @@ fn build_ui(app: &Application) {
                         gtk4::glib::Propagation::Stop
                     }
 
-                    // ==========================================
+                    // =========================================
                     // PAGE DOWN
-                    // ==========================================
+                    // =========================================
 
                     gdk::Key::Page_Down => {
                         move_selection(
@@ -940,9 +842,9 @@ fn build_ui(app: &Application) {
                         gtk4::glib::Propagation::Stop
                     }
 
-                    // ==========================================
+                    // =========================================
                     // PAGE UP
-                    // ==========================================
+                    // =========================================
 
                     gdk::Key::Page_Up => {
                         move_selection(
@@ -960,32 +862,19 @@ fn build_ui(app: &Application) {
                         gtk4::glib::Propagation::Stop
                     }
 
-                    // ==========================================
+                    // =========================================
                     // EVERYTHING ELSE
-                    // ==========================================
+                    // =========================================
 
                     _ => {
-                        /*
-                         * CRITICAL:
-                         *
-                         * Never stop normal keyboard events.
-                         *
-                         * Therefore:
-                         *
-                         * a -> Entry
-                         * b -> Entry
-                         * c -> Entry
-                         * Backspace -> Entry
-                         * Space -> Entry
-                         * Enter -> activate
-                         */
-
                         gtk4::glib::Propagation::Proceed
                     }
                 }
             },
         );
 
+        // search is still available here because the closure
+        // owns search_for_keys, not search itself.
         search.add_controller(
             controller,
         );
@@ -1022,22 +911,14 @@ fn build_ui(app: &Application) {
                 {
                     launch_app(app);
 
-                    /*
-                     * Hide instead of close.
-                     *
-                     * The same GTK window is reused on
-                     * the next activation.
-                     */
-
-                    window_for_row
-                        .hide();
+                    window_for_row.hide();
                 }
             },
         );
     }
 
     // ========================================================
-    // KEEP ENTRY FOCUSED
+    // KEEP SEARCH FOCUSED
     // ========================================================
 
     {
@@ -1056,12 +937,7 @@ fn build_ui(app: &Application) {
     }
 
     // ========================================================
-    // WINDOW CLOSE REQUEST
-    //
-    // If GTK/compositor requests a close, hide instead of
-    // destroying the launcher window.
-    //
-    // Returning Stop prevents the actual destroy.
+    // CLOSE = HIDE
     // ========================================================
 
     {
@@ -1080,10 +956,6 @@ fn build_ui(app: &Application) {
 
     window.present();
 
-    // ========================================================
-    // INITIAL FOCUS
-    // ========================================================
-
     search.grab_focus();
 
     search.set_position(-1);
@@ -1095,10 +967,8 @@ fn build_ui(app: &Application) {
 
 fn launch_selected(
     list: &ListBox,
-    current_apps:
-        &Rc<RefCell<Vec<AppInfo>>>,
-    window:
-        &ApplicationWindow,
+    current_apps: &Rc<RefCell<Vec<AppInfo>>>,
+    window: &ApplicationWindow,
 ) {
     let Some(row) =
         list.selected_row()
@@ -1117,26 +987,16 @@ fn launch_selected(
         current_apps.borrow();
 
     if let Some(app) =
-        apps.get(
-            index as usize,
-        )
+        apps.get(index as usize)
     {
         launch_app(app);
-
-        /*
-         * IMPORTANT:
-         *
-         * Hide, don't close.
-         *
-         * This keeps the single GTK window alive.
-         */
 
         window.hide();
     }
 }
 
 // ============================================================
-// MOVE SELECTION + AUTO SCROLL
+// MOVE SELECTION
 // ============================================================
 
 fn move_selection(
@@ -1154,9 +1014,7 @@ fn move_selection(
 
     let current =
         list.selected_row()
-            .map(
-                |row| row.index(),
-            )
+            .map(|row| row.index())
             .unwrap_or(0);
 
     let mut next =
@@ -1175,12 +1033,6 @@ fn move_selection(
     else {
         return;
     };
-
-    // ========================================================
-    // SELECT ONLY
-    //
-    // No row.grab_focus().
-    // ========================================================
 
     list.select_row(
         Some(&row),
@@ -1201,8 +1053,7 @@ fn move_selection(
 
     let row_bottom =
         row_top
-            + allocation.height()
-                as f64;
+            + allocation.height() as f64;
 
     let current_value =
         adjustment.value();
@@ -1214,21 +1065,16 @@ fn move_selection(
         current_value;
 
     let viewport_bottom =
-        current_value
-            + page_size;
+        current_value + page_size;
 
     let mut new_value =
         current_value;
 
     if row_top < viewport_top {
+        new_value = row_top;
+    } else if row_bottom > viewport_bottom {
         new_value =
-            row_top;
-    } else if row_bottom
-        > viewport_bottom
-    {
-        new_value =
-            row_bottom
-                - page_size;
+            row_bottom - page_size;
     }
 
     let lower =
@@ -1238,16 +1084,14 @@ fn move_selection(
         adjustment.upper();
 
     let max_value =
-        (upper - page_size)
-            .max(lower);
+        (upper - page_size).max(lower);
 
     new_value =
         new_value
             .max(lower)
             .min(max_value);
 
-    if (new_value - current_value)
-        .abs()
+    if (new_value - current_value).abs()
         > f64::EPSILON
     {
         adjustment.set_value(
@@ -1268,9 +1112,7 @@ fn populate_list(
     while let Some(row) =
         list.row_at_index(0)
     {
-        list.remove(
-            &row,
-        );
+        list.remove(&row);
     }
 
     for app in apps.iter() {
@@ -1280,9 +1122,7 @@ fn populate_list(
                 config,
             );
 
-        list.append(
-            &row,
-        );
+        list.append(&row);
     }
 }
 
@@ -1304,11 +1144,8 @@ fn create_app_row(
         );
 
     wrapper.set_margin_start(8);
-
     wrapper.set_margin_end(8);
-
     wrapper.set_margin_top(5);
-
     wrapper.set_margin_bottom(5);
 
     // ========================================================
@@ -1335,7 +1172,7 @@ fn create_app_row(
     }
 
     // ========================================================
-    // TEXT BOX
+    // TEXT
     // ========================================================
 
     let text_box =
@@ -1351,7 +1188,7 @@ fn create_app_row(
     text_box.set_hexpand(true);
 
     // ========================================================
-    // APP NAME
+    // NAME
     // ========================================================
 
     let name =
@@ -1453,7 +1290,7 @@ fn launch_app(
 
         Err(error) => {
             eprintln!(
-                "RaixLauncher: failed to launch '{}': {}",
+                "raix: failed to launch '{}': {}",
                 app.name,
                 error
             );
@@ -1491,9 +1328,7 @@ fn clean_exec(
             );
     }
 
-    result
-        .trim()
-        .to_string()
+    result.trim().to_string()
 }
 
 // ============================================================
@@ -1528,22 +1363,16 @@ fn shell_split(
         }
 
         match c {
-            '\\'
-                if !single_quote =>
-            {
+            '\\' if !single_quote => {
                 escaped = true;
             }
 
-            '\''
-                if !double_quote =>
-            {
+            '\'' if !double_quote => {
                 single_quote =
                     !single_quote;
             }
 
-            '"'
-                if !single_quote =>
-            {
+            '"' if !single_quote => {
                 double_quote =
                     !double_quote;
             }
@@ -1568,21 +1397,17 @@ fn shell_split(
     }
 
     if !current.is_empty() {
-        args.push(
-            current,
-        );
+        args.push(current);
     }
 
     args
 }
 
 // ============================================================
-// LOAD DESKTOP APPS
+// LOAD DESKTOP APPLICATIONS
 // ============================================================
 
-fn load_desktop_apps()
-    -> Vec<AppInfo>
-{
+fn load_desktop_apps() -> Vec<AppInfo> {
     let mut directories =
         Vec::new();
 
@@ -1624,12 +1449,11 @@ fn load_desktop_apps()
             match std::fs::read_dir(
                 &directory,
             ) {
-                Ok(entries) =>
-                    entries,
+                Ok(entries) => entries,
 
                 Err(error) => {
                     eprintln!(
-                        "RaixLauncher: cannot read {}: {}",
+                        "raix: cannot read {}: {}",
                         directory.display(),
                         error
                     );
@@ -1638,17 +1462,13 @@ fn load_desktop_apps()
                 }
             };
 
-        for entry in
-            entries.flatten()
-        {
+        for entry in entries.flatten() {
             let path =
                 entry.path();
 
             if path
                 .extension()
-                .and_then(
-                    |x| x.to_str(),
-                )
+                .and_then(|x| x.to_str())
                 != Some("desktop")
             {
                 continue;
@@ -1658,11 +1478,9 @@ fn load_desktop_apps()
                 match std::fs::read_to_string(
                     &path,
                 ) {
-                    Ok(data) =>
-                        data,
+                    Ok(data) => data,
 
-                    Err(_) =>
-                        continue,
+                    Err(_) => continue,
                 };
 
             let mut name =
@@ -1715,9 +1533,7 @@ fn load_desktop_apps()
                 }
 
                 if let Some(value) =
-                    line.strip_prefix(
-                        "Name=",
-                    )
+                    line.strip_prefix("Name=")
                 {
                     if name.is_empty() {
                         name =
@@ -1726,60 +1542,46 @@ fn load_desktop_apps()
                 }
 
                 if let Some(value) =
-                    line.strip_prefix(
-                        "Exec=",
-                    )
+                    line.strip_prefix("Exec=")
                 {
                     exec =
                         value.to_string();
                 }
 
                 if let Some(value) =
-                    line.strip_prefix(
-                        "Icon=",
-                    )
+                    line.strip_prefix("Icon=")
                 {
                     icon =
                         value.to_string();
                 }
 
                 if let Some(value) =
-                    line.strip_prefix(
-                        "Comment=",
-                    )
+                    line.strip_prefix("Comment=")
                 {
                     comment =
                         value.to_string();
                 }
 
                 if let Some(value) =
-                    line.strip_prefix(
-                        "Hidden=",
-                    )
+                    line.strip_prefix("Hidden=")
                 {
                     hidden =
-                        value
-                            .eq_ignore_ascii_case(
-                                "true",
-                            );
+                        value.eq_ignore_ascii_case(
+                            "true",
+                        );
                 }
 
                 if let Some(value) =
-                    line.strip_prefix(
-                        "NoDisplay=",
-                    )
+                    line.strip_prefix("NoDisplay=")
                 {
                     no_display =
-                        value
-                            .eq_ignore_ascii_case(
-                                "true",
-                            );
+                        value.eq_ignore_ascii_case(
+                            "true",
+                        );
                 }
             }
 
-            if hidden
-                || no_display
-            {
+            if hidden || no_display {
                 continue;
             }
 
@@ -1832,7 +1634,7 @@ fn fuzzy_score(
         return Some(0);
     }
 
-    // Exact substring = strongest match.
+    // Exact substring.
     if let Some(position) =
         text.find(query)
     {
@@ -1887,7 +1689,6 @@ fn fuzzy_score(
                 score += 100;
             }
 
-            // Word boundary bonus.
             if index > 0 {
                 let previous =
                     text_chars[index - 1];
