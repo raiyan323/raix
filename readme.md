@@ -234,7 +234,7 @@ to open Raix.
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/raix.git
+git clone https://github.com/raiyan323/raix.git
 cd raix
 ```
 
