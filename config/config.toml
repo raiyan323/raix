@@ -1,41 +1,16 @@
-# ============================================================
-# RAIX LAUNCHER CONFIG
-# ============================================================
-
-# ------------------------------------------------------------
-# WINDOW
-# ------------------------------------------------------------
-
 width = 780
 height = 540
 
+background = "rgba(5, 9, 13, 0.82)"
+text_color = "#D5E5EA"
+comment_color = "#71838A"
 
-# ------------------------------------------------------------
-# MAIN APPEARANCE
-# ------------------------------------------------------------
-
-# More transparent / glass-like
-background = "rgba(15, 17, 25, 0.82)"
-
-text_color = "#f4f4f7"
-comment_color = "#9295a5"
-
-# Selected application
-selected_color = "rgba(120, 145, 255, 0.24)"
-
-# Mouse hover
-hover_color = "rgba(255, 255, 255, 0.055)"
-
-# Main window border
-border_color = "rgba(255, 255, 255, 0.13)"
+selected_color = "rgba(39, 215, 237, 0.24)"
+hover_color = "rgba(103, 236, 255, 0.055)"
+border_color = "rgba(103, 236, 255, 0.13)"
 
 border_radius = 22
 border_width = 1
-
-
-# ------------------------------------------------------------
-# FONT
-# ------------------------------------------------------------
 
 font = "JetBrainsMono Nerd Font"
 
@@ -43,35 +18,15 @@ app_font_size = 15
 comment_font_size = 11
 search_font_size = 17
 
-
-# ------------------------------------------------------------
-# SEARCH
-# ------------------------------------------------------------
-
 search_placeholder = "Search applications..."
-
-# Glass search box
-search_background = "rgba(255, 255, 255, 0.065)"
-
-search_border_color = "rgba(255, 255, 255, 0.09)"
-
-# Focused search border
-search_focus_border_color = "rgba(130, 165, 255, 0.70)"
-
-
-# ------------------------------------------------------------
-# APPLICATIONS
-# ------------------------------------------------------------
 
 show_icons = true
 show_comments = true
-
 icon_size = 42
-
-
-# ------------------------------------------------------------
-# LIST
-# ------------------------------------------------------------
 
 row_radius = 13
 row_margin = 2
+
+search_background = "rgba(8, 18, 23, 0.82)"
+search_border_color = "rgba(103, 236, 255, 0.09)"
+search_focus_border_color = "rgba(53, 232, 255, 0.70)"
