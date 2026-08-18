@@ -26,7 +26,6 @@ struct AppInfo {
     exec: String,
     icon: String,
     comment: String,
-
     desktop_file: PathBuf,
 
     terminal: bool,
@@ -56,6 +55,7 @@ struct Config {
     border_width: i32,
 
     font: String,
+
     app_font_size: i32,
     comment_font_size: i32,
     search_font_size: i32,
@@ -80,17 +80,13 @@ impl Default for Config {
             width: 760,
             height: 520,
 
-            background: "rgba(20, 20, 28, 0.97)".to_string(),
+            background: "rgba(8, 8, 10, 0.98)".to_string(),
+            text_color: "#ffffff".to_string(),
+            comment_color: "#888888".to_string(),
 
-            text_color: "#eeeeee".to_string(),
-
-            comment_color: "#858591".to_string(),
-
-            selected_color: "rgba(110, 140, 255, 0.22)".to_string(),
-
+            selected_color: "rgba(255, 255, 255, 0.14)".to_string(),
             hover_color: "rgba(255, 255, 255, 0.07)".to_string(),
-
-            border_color: "rgba(255, 255, 255, 0.10)".to_string(),
+            border_color: "rgba(255, 255, 255, 0.16)".to_string(),
 
             border_radius: 18,
             border_width: 1,
@@ -110,11 +106,9 @@ impl Default for Config {
             row_radius: 12,
             row_margin: 2,
 
-            search_background: "rgba(255, 255, 255, 0.07)".to_string(),
-
-            search_border_color: "rgba(255, 255, 255, 0.08)".to_string(),
-
-            search_focus_border_color: "rgba(130, 170, 255, 0.65)".to_string(),
+            search_background: "rgba(255, 255, 255, 0.06)".to_string(),
+            search_border_color: "rgba(255, 255, 255, 0.10)".to_string(),
+            search_focus_border_color: "rgba(255, 255, 255, 0.55)".to_string(),
         }
     }
 }
@@ -202,15 +196,6 @@ fn main() {
 }
 
 // ============================================================
-// SHOW LAUNCHER
-// ============================================================
-
-fn show_launcher(window: &ApplicationWindow) {
-    window.show();
-    window.present();
-}
-
-// ============================================================
 // BUILD UI
 // ============================================================
 
@@ -246,11 +231,11 @@ fn build_ui(app: &Application) {
 
     window.set_namespace(Some("raix"));
 
-    // Center fixed-size surface.
-    window.set_anchor(Edge::Top, true);
-    window.set_anchor(Edge::Bottom, true);
-    window.set_anchor(Edge::Left, true);
-    window.set_anchor(Edge::Right, true);
+    // Fixed-size centered layer-shell surface.
+    window.set_anchor(Edge::Top, false);
+    window.set_anchor(Edge::Bottom, false);
+    window.set_anchor(Edge::Left, false);
+    window.set_anchor(Edge::Right, false);
 
     window.set_margin(Edge::Top, 0);
     window.set_margin(Edge::Bottom, 0);
@@ -317,48 +302,48 @@ fn build_ui(app: &Application) {
         }}
 
         .search:focus {{
+            background:
+                rgba(255, 255, 255, 0.09);
+
             border-color:
                 {search_focus_border_color};
-
-            background:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.09
-                );
         }}
 
         .search placeholder {{
             color:
-                #777783;
+                #777777;
         }}
+
+        /*
+         * Only style the actual ListBox rows.
+         *
+         * Do NOT use a generic "row" selector globally.
+         * GTK4 has many internal widgets and overly broad
+         * CSS can interfere with ScrolledWindow internals.
+         */
 
         list {{
-            background:
-                transparent;
+            background: transparent;
         }}
 
-        row {{
-            background:
-                transparent;
+        list > row {{
+            background: transparent;
 
             border-radius:
                 {row_radius}px;
 
-            padding:
-                4px;
+            padding: 4px;
 
             margin:
                 {row_margin}px 0;
         }}
 
-        row:hover {{
+        list > row:hover {{
             background:
                 {hover_color};
         }}
 
-        row:selected {{
+        list > row:selected {{
             background:
                 {selected_color};
         }}
@@ -388,24 +373,6 @@ fn build_ui(app: &Application) {
 
             min-height:
                 {icon_size}px;
-        }}
-
-        scrollbar {{
-            background:
-                transparent;
-        }}
-
-        scrollbar slider {{
-            background:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.15
-                );
-
-            border-radius:
-                8px;
         }}
         "#,
         font = config.font,
@@ -445,7 +412,6 @@ fn build_ui(app: &Application) {
     let container = GtkBox::new(Orientation::Vertical, 10);
 
     container.set_width_request(config.width);
-
     container.set_height_request(config.height);
 
     container.add_css_class("launcher");
@@ -477,6 +443,17 @@ fn build_ui(app: &Application) {
 
     list.set_activate_on_single_click(false);
 
+    /*
+     * GTK4 scrolling:
+     *
+     * - ScrolledWindow owns the viewport.
+     * - ListBox owns rows.
+     * - No custom scrollbar CSS.
+     * - We use the native vertical adjustment only when
+     *   keyboard navigation requires bringing a selected row
+     *   into view.
+     */
+
     let scroll = ScrolledWindow::builder()
         .child(&list)
         .vexpand(true)
@@ -490,16 +467,12 @@ fn build_ui(app: &Application) {
     window.set_child(Some(&container));
 
     // ========================================================
-    // CURRENT RESULTS
+    // RESULTS
     // ========================================================
 
-    let initial_results = (0..applications.len()).collect::<Vec<usize>>();
+    let initial_results: Vec<usize> = (0..applications.len()).collect();
 
     let current_results = Rc::new(RefCell::new(initial_results.clone()));
-
-    // ========================================================
-    // INITIAL LIST
-    // ========================================================
 
     populate_list(&list, &applications, &initial_results, &config);
 
@@ -521,12 +494,8 @@ fn build_ui(app: &Application) {
         search.connect_changed(move |entry| {
             let query = entry.text().trim().to_lowercase();
 
-            // =============================================
-            // EMPTY SEARCH
-            // =============================================
-
             if query.is_empty() {
-                let results = (0..applications.len()).collect::<Vec<_>>();
+                let results: Vec<usize> = (0..applications.len()).collect();
 
                 *current_results.borrow_mut() = results.clone();
 
@@ -537,11 +506,7 @@ fn build_ui(app: &Application) {
                 return;
             }
 
-            // =============================================
-            // FUZZY SEARCH
-            // =============================================
-
-            let mut scored = Vec::with_capacity(applications.len());
+            let mut scored: Vec<(i32, usize)> = Vec::with_capacity(applications.len());
 
             for (index, app) in applications.iter().enumerate() {
                 if let Some(score) = fuzzy_score(&query, &app.search_text) {
@@ -554,10 +519,7 @@ fn build_ui(app: &Application) {
                     .then_with(|| applications[a.1].name.cmp(&applications[b.1].name))
             });
 
-            let results = scored
-                .into_iter()
-                .map(|(_, index)| index)
-                .collect::<Vec<_>>();
+            let results: Vec<usize> = scored.into_iter().map(|(_, index)| index).collect();
 
             *current_results.borrow_mut() = results.clone();
 
@@ -567,12 +529,13 @@ fn build_ui(app: &Application) {
 
             entry.grab_focus();
 
-            entry.set_position(-1);
+            // GTK4 Editable::set_position expects i32.
+            entry.set_position(-1_i32);
         });
     }
 
     // ========================================================
-    // ENTER FROM SEARCH
+    // ENTER
     // ========================================================
 
     {
@@ -590,7 +553,7 @@ fn build_ui(app: &Application) {
     }
 
     // ========================================================
-    // KEYBOARD CONTROLLER
+    // KEYBOARD
     // ========================================================
 
     {
@@ -604,82 +567,76 @@ fn build_ui(app: &Application) {
 
         let window_for_keys = window.clone();
 
-        // ====================================================
-        // IMPORTANT OWNERSHIP FIX
-        //
-        // Clone BEFORE the move closure.
-        // ====================================================
-
         let applications_for_keys = Rc::clone(&applications);
 
         let current_results_for_keys = Rc::clone(&current_results);
 
         controller.connect_key_pressed(move |_, key, _, _| {
             match key {
-                // ========================================
+                // ------------------------------------------------
                 // ESC
-                // ========================================
+                // ------------------------------------------------
                 gdk::Key::Escape => {
                     window_for_keys.hide();
 
                     gtk4::glib::Propagation::Stop
                 }
 
-                // ========================================
+                // ------------------------------------------------
                 // DOWN
-                // ========================================
+                // ------------------------------------------------
                 gdk::Key::Down => {
                     move_selection(&list_for_keys, &scroll_for_keys, 1);
 
                     search_for_keys.grab_focus();
 
-                    search_for_keys.set_position(-1);
+                    search_for_keys.set_position(-1_i32);
 
                     gtk4::glib::Propagation::Stop
                 }
 
-                // ========================================
+                // ------------------------------------------------
                 // UP
-                // ========================================
+                // ------------------------------------------------
                 gdk::Key::Up => {
                     move_selection(&list_for_keys, &scroll_for_keys, -1);
 
                     search_for_keys.grab_focus();
 
-                    search_for_keys.set_position(-1);
+                    search_for_keys.set_position(-1_i32);
 
                     gtk4::glib::Propagation::Stop
                 }
 
-                // ========================================
+                // ------------------------------------------------
                 // PAGE DOWN
-                // ========================================
+                // ------------------------------------------------
                 gdk::Key::Page_Down => {
                     move_selection(&list_for_keys, &scroll_for_keys, 6);
 
                     search_for_keys.grab_focus();
 
-                    search_for_keys.set_position(-1);
+                    search_for_keys.set_position(-1_i32);
 
                     gtk4::glib::Propagation::Stop
                 }
 
-                // ========================================
+                // ------------------------------------------------
                 // PAGE UP
-                // ========================================
+                // ------------------------------------------------
                 gdk::Key::Page_Up => {
                     move_selection(&list_for_keys, &scroll_for_keys, -6);
 
                     search_for_keys.grab_focus();
 
-                    search_for_keys.set_position(-1);
+                    search_for_keys.set_position(-1_i32);
 
                     gtk4::glib::Propagation::Stop
                 }
 
-                // ========================================
+                // ------------------------------------------------
                 // ENTER
-                // ========================================
+                // ------------------------------------------------
                 gdk::Key::Return | gdk::Key::KP_Enter => {
                     launch_selected(
                         &list_for_keys,
@@ -744,12 +701,12 @@ fn build_ui(app: &Application) {
         list.connect_selected_rows_changed(move |_| {
             search.grab_focus();
 
-            search.set_position(-1);
+            search.set_position(-1_i32);
         });
     }
 
     // ========================================================
-    // CLOSE REQUEST
+    // CLOSE
     // ========================================================
 
     window.connect_close_request(|window| {
@@ -762,15 +719,17 @@ fn build_ui(app: &Application) {
     // SHOW
     // ========================================================
 
-    show_launcher(&window);
+    window.show();
+
+    window.present();
 
     search.grab_focus();
 
-    search.set_position(-1);
+    search.set_position(-1_i32);
 }
 
 // ============================================================
-// SELECT FIRST ROW
+// SELECT FIRST
 // ============================================================
 
 fn select_first_row(list: &ListBox) {
@@ -829,15 +788,7 @@ fn move_selection(list: &ListBox, scroll: &ScrolledWindow, amount: i32) {
 
     let current = list.selected_row().map(|row| row.index()).unwrap_or(0);
 
-    let mut next = current.saturating_add(amount);
-
-    if next < 0 {
-        next = 0;
-    }
-
-    if next >= count {
-        next = count - 1;
-    }
+    let next = current.saturating_add(amount).clamp(0, count - 1);
 
     let Some(row) = list.row_at_index(next) else {
         return;
@@ -846,9 +797,21 @@ fn move_selection(list: &ListBox, scroll: &ScrolledWindow, amount: i32) {
     list.select_row(Some(&row));
 
     // ========================================================
-    // AUTO SCROLL
+    // NATIVE GTK4 SCROLLED WINDOW ADJUSTMENT
+    //
+    // We do not style or manipulate GTK's scrollbar widget.
+    // We only adjust the viewport when keyboard navigation
+    // moves outside the visible area.
     // ========================================================
 
+    scroll_selected_row_into_view(scroll, &row);
+}
+
+// ============================================================
+// SCROLL SELECTED ROW INTO VIEW
+// ============================================================
+
+fn scroll_selected_row_into_view(scroll: &ScrolledWindow, row: &ListBoxRow) {
     let adjustment = scroll.vadjustment();
 
     let allocation = row.allocation();
@@ -857,32 +820,30 @@ fn move_selection(list: &ListBox, scroll: &ScrolledWindow, amount: i32) {
 
     let row_bottom = row_top + allocation.height() as f64;
 
-    let current_value = adjustment.value();
+    let viewport_top = adjustment.value();
 
-    let page_size = adjustment.page_size();
+    let viewport_bottom = viewport_top + adjustment.page_size();
 
-    let viewport_top = current_value;
-
-    let viewport_bottom = current_value + page_size;
-
-    let mut new_value = current_value;
+    let mut target = viewport_top;
 
     if row_top < viewport_top {
-        new_value = row_top;
+        target = row_top;
     } else if row_bottom > viewport_bottom {
-        new_value = row_bottom - page_size;
+        target = row_bottom - adjustment.page_size();
     }
 
     let lower = adjustment.lower();
 
     let upper = adjustment.upper();
 
+    let page_size = adjustment.page_size();
+
     let max_value = (upper - page_size).max(lower);
 
-    new_value = new_value.max(lower).min(max_value);
+    target = target.clamp(lower, max_value);
 
-    if (new_value - current_value).abs() > f64::EPSILON {
-        adjustment.set_value(new_value);
+    if (target - adjustment.value()).abs() > f64::EPSILON {
+        adjustment.set_value(target);
     }
 }
 
@@ -930,7 +891,11 @@ fn create_app_row(app: &AppInfo, config: &Config) -> ListBoxRow {
     // ========================================================
 
     if config.show_icons {
-        let image = Image::from_icon_name(&app.icon);
+        let image = if app.icon.contains('/') {
+            Image::from_file(&app.icon)
+        } else {
+            Image::from_icon_name(&app.icon)
+        };
 
         image.set_pixel_size(config.icon_size);
 
@@ -959,6 +924,8 @@ fn create_app_row(app: &AppInfo, config: &Config) -> ListBoxRow {
 
     name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
 
+    name.set_hexpand(true);
+
     name.add_css_class("app-name");
 
     text_box.append(&name);
@@ -973,6 +940,8 @@ fn create_app_row(app: &AppInfo, config: &Config) -> ListBoxRow {
         comment.set_halign(gtk4::Align::Start);
 
         comment.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+
+        comment.set_hexpand(true);
 
         comment.add_css_class("app-comment");
 
@@ -991,23 +960,24 @@ fn create_app_row(app: &AppInfo, config: &Config) -> ListBoxRow {
 // ============================================================
 
 fn launch_app(app: &AppInfo) {
-    // ========================================================
-    // DBUS ACTIVATABLE
-    // ========================================================
+    // --------------------------------------------------------
+    // DBusActivatable
+    //
+    // We intentionally do not use gio::DesktopAppInfo here.
+    // gtk4's gio dependency does not expose that type in the
+    // configuration currently being used.
+    //
+    // If DBus activation is present but unavailable through
+    // the current API, falling back to Exec is safer than
+    // preventing the application from launching.
+    // --------------------------------------------------------
 
-    if app.dbus_activatable && app.exec.trim().is_empty() {
+    if app.dbus_activatable {
         eprintln!(
-            "raix: '{}' is DBusActivatable but has no Exec entry; \
-             D-Bus activation is not implemented",
+            "raix: '{}' is DBusActivatable; using Exec fallback",
             app.name
         );
-
-        return;
     }
-
-    // ========================================================
-    // EXEC PARSE
-    // ========================================================
 
     let Some(parts) = build_exec_arguments(app) else {
         eprintln!("raix: invalid Exec entry for '{}': {}", app.name, app.exec);
@@ -1026,42 +996,22 @@ fn launch_app(app: &AppInfo) {
     let args = &parts[1..];
 
     // ========================================================
-    // TERMINAL APPLICATION
+    // TERMINAL APP
     // ========================================================
 
     if app.terminal {
-        if let Some(terminal) = find_terminal() {
-            let mut command = Command::new(terminal);
-
-            command.arg("-e").arg(executable).args(args);
-
-            match command
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-            {
-                Ok(_) => {
-                    return;
-                }
-
-                Err(error) => {
-                    eprintln!("raix: terminal launch failed for '{}': {}", app.name, error);
-                }
-            }
-        } else {
+        if let Err(error) = launch_in_terminal(executable, args) {
             eprintln!(
-                "raix: '{}' requires a terminal, \
-                 but no terminal emulator was found",
-                app.name
+                "raix: failed to launch terminal application '{}': {}",
+                app.name, error
             );
-
-            return;
         }
+
+        return;
     }
 
     // ========================================================
-    // NORMAL APPLICATION
+    // NORMAL APP
     // ========================================================
 
     match Command::new(executable)
@@ -1080,11 +1030,11 @@ fn launch_app(app: &AppInfo) {
 }
 
 // ============================================================
-// FIND TERMINAL
+// TERMINAL
 // ============================================================
 
-fn find_terminal() -> Option<String> {
-    let candidates = [
+fn launch_in_terminal(executable: &str, args: &[String]) -> Result<(), String> {
+    let terminals = [
         "xdg-terminal-exec",
         "kitty",
         "foot",
@@ -1097,13 +1047,88 @@ fn find_terminal() -> Option<String> {
         "xterm",
     ];
 
-    for candidate in candidates {
-        if command_exists(candidate) {
-            return Some(candidate.to_string());
+    for terminal in terminals {
+        if !command_exists(terminal) {
+            continue;
+        }
+
+        let mut command = Command::new(terminal);
+
+        match terminal {
+            "xdg-terminal-exec" => {
+                command.arg("--").arg(executable).args(args);
+            }
+
+            "kitty" | "alacritty" | "ghostty" | "konsole" | "xterm" => {
+                command.arg("-e").arg(executable).args(args);
+            }
+
+            "foot" => {
+                command.arg(executable).args(args);
+            }
+
+            "wezterm" => {
+                command.arg("start").arg("--").arg(executable).args(args);
+            }
+
+            "gnome-terminal" => {
+                command.arg("--").arg(executable).args(args);
+            }
+
+            "xfce4-terminal" => {
+                /*
+                 * xfce4-terminal's --command accepts one
+                 * shell-like command string. We therefore
+                 * quote arguments before joining them.
+                 */
+
+                let command_line = std::iter::once(shell_quote(executable))
+                    .chain(args.iter().map(|arg| shell_quote(arg)))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+
+                command.arg("--command").arg(command_line);
+            }
+
+            _ => continue,
+        }
+
+        match command
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(_) => return Ok(()),
+
+            Err(error) => {
+                eprintln!("raix: terminal '{}' failed: {}", terminal, error);
+            }
         }
     }
 
-    None
+    Err("no supported terminal emulator found".to_string())
+}
+
+// ============================================================
+// SHELL QUOTE
+// ============================================================
+
+fn shell_quote(value: &str) -> String {
+    if value.is_empty() {
+        return "''".to_string();
+    }
+
+    if value.chars().all(|c| {
+        c.is_ascii_alphanumeric()
+            || matches!(c, '_' | '-' | '.' | '/' | ':' | '@' | '%' | '+' | '=')
+    }) {
+        return value.to_string();
+    }
+
+    let escaped = value.replace('\'', "'\\''");
+
+    format!("'{}'", escaped)
 }
 
 // ============================================================
@@ -1146,13 +1171,8 @@ fn build_exec_arguments(app: &AppInfo) -> Option<Vec<String>> {
             continue;
         }
 
-        // ====================================================
-        // FIELD CODES
-        // ====================================================
-
         match token.as_str() {
             "%f" | "%F" | "%u" | "%U" => {
-                // No file/URL was selected.
                 continue;
             }
 
@@ -1185,26 +1205,20 @@ fn build_exec_arguments(app: &AppInfo) -> Option<Vec<String>> {
             _ => {}
         }
 
-        // ====================================================
-        // EMBEDDED FIELD CODES
-        // ====================================================
-
-        let mut value = token;
-
-        if value.contains("%f")
-            || value.contains("%F")
-            || value.contains("%u")
-            || value.contains("%U")
-            || value.contains("%i")
-            || value.contains("%v")
-            || value.contains("%m")
+        if token.contains("%f")
+            || token.contains("%F")
+            || token.contains("%u")
+            || token.contains("%U")
+            || token.contains("%i")
+            || token.contains("%v")
+            || token.contains("%m")
         {
             continue;
         }
 
-        value = value.replace("%c", &app.name);
-
-        value = value.replace("%k", &app.desktop_file.to_string_lossy());
+        let value = token
+            .replace("%c", &app.name)
+            .replace("%k", &app.desktop_file.to_string_lossy());
 
         result.push(value);
     }
@@ -1279,11 +1293,7 @@ fn desktop_exec_split(input: &str) -> Option<Vec<String>> {
         }
     }
 
-    if escaped {
-        return None;
-    }
-
-    if single_quote || double_quote {
+    if escaped || single_quote || double_quote {
         return None;
     }
 
@@ -1303,9 +1313,11 @@ fn load_desktop_apps() -> Vec<AppInfo> {
 
     let mut apps = Vec::new();
 
-    let mut seen_files = HashSet::new();
+    let mut seen_files: HashSet<PathBuf> = HashSet::new();
 
-    let mut seen_apps = HashSet::new();
+    let mut seen_desktop_names: HashSet<String> = HashSet::new();
+
+    let mut seen_apps: HashSet<String> = HashSet::new();
 
     for directory in directories {
         if !directory.is_dir() {
@@ -1329,21 +1341,35 @@ fn load_desktop_apps() -> Vec<AppInfo> {
                 continue;
             }
 
+            // ====================================================
+            // DESKTOP FILE NAME DEDUP
+            // ====================================================
+
+            if let Some(name) = path.file_name().and_then(|x| x.to_str()) {
+                if !seen_desktop_names.insert(name.to_string()) {
+                    continue;
+                }
+            }
+
+            // ====================================================
+            // CANONICAL PATH
+            // ====================================================
+
             let canonical = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
 
             if !seen_files.insert(canonical.clone()) {
                 continue;
             }
 
+            // ====================================================
+            // READ
+            // ====================================================
+
             let data = match std::fs::read_to_string(&path) {
                 Ok(data) => data,
 
                 Err(error) => {
-                    eprintln!(
-                        "raix: cannot read desktop file '{}': {}",
-                        path.display(),
-                        error
-                    );
+                    eprintln!("raix: cannot read '{}': {}", path.display(), error);
 
                     continue;
                 }
@@ -1353,9 +1379,9 @@ fn load_desktop_apps() -> Vec<AppInfo> {
                 continue;
             };
 
-            // =================================================
+            // ====================================================
             // TYPE
-            // =================================================
+            // ====================================================
 
             if entry
                 .get("Type")
@@ -1366,35 +1392,37 @@ fn load_desktop_apps() -> Vec<AppInfo> {
                 continue;
             }
 
-            // =================================================
-            // HIDDEN / NODISPLAY
-            // =================================================
+            // ====================================================
+            // HIDDEN
+            // ====================================================
 
             if parse_bool(entry.get("Hidden")) || parse_bool(entry.get("NoDisplay")) {
                 continue;
             }
 
-            // =================================================
-            // TRYEXEC
-            // =================================================
+            // ====================================================
+            // TRY EXEC
+            // ====================================================
 
             if let Some(try_exec) = entry.get("TryExec") {
-                if !try_exec.trim().is_empty() && !command_exists(try_exec.trim()) {
+                let try_exec = try_exec.trim();
+
+                if !try_exec.is_empty() && !command_exists(try_exec) {
                     continue;
                 }
             }
 
-            // =================================================
+            // ====================================================
             // DESKTOP ENVIRONMENT
-            // =================================================
+            // ====================================================
 
             if !desktop_environment_allows(&entry) {
                 continue;
             }
 
-            // =================================================
+            // ====================================================
             // NAME
-            // =================================================
+            // ====================================================
 
             let name = localized_value(&entry, "Name").unwrap_or_default();
 
@@ -1402,9 +1430,9 @@ fn load_desktop_apps() -> Vec<AppInfo> {
                 continue;
             }
 
-            // =================================================
+            // ====================================================
             // EXEC
-            // =================================================
+            // ====================================================
 
             let exec = entry.get("Exec").cloned().unwrap_or_default();
 
@@ -1413,18 +1441,14 @@ fn load_desktop_apps() -> Vec<AppInfo> {
             }
 
             if desktop_exec_split(&exec).is_none() {
-                eprintln!(
-                    "raix: skipping malformed Exec in '{}': {}",
-                    path.display(),
-                    exec
-                );
+                eprintln!("raix: malformed Exec in '{}'", path.display());
 
                 continue;
             }
 
-            // =================================================
+            // ====================================================
             // ICON
-            // =================================================
+            // ====================================================
 
             let icon = entry
                 .get("Icon")
@@ -1432,43 +1456,43 @@ fn load_desktop_apps() -> Vec<AppInfo> {
                 .filter(|x| !x.trim().is_empty())
                 .unwrap_or_else(|| "application-x-executable".to_string());
 
-            // =================================================
+            // ====================================================
             // COMMENT
-            // =================================================
+            // ====================================================
 
             let comment = localized_value(&entry, "Comment").unwrap_or_default();
 
-            // =================================================
+            // ====================================================
             // TERMINAL
-            // =================================================
+            // ====================================================
 
             let terminal = parse_bool(entry.get("Terminal"));
 
-            // =================================================
+            // ====================================================
             // DBUS
-            // =================================================
+            // ====================================================
 
             let dbus_activatable = parse_bool(entry.get("DBusActivatable"));
 
-            // =================================================
-            // DUPLICATE
-            // =================================================
+            // ====================================================
+            // DUPLICATE APP
+            // ====================================================
 
-            let duplicate_key = format!("{}\n{}", name.to_lowercase(), exec.trim().to_lowercase(),);
+            let duplicate_key = format!("{}\n{}", name.to_lowercase(), exec.to_lowercase());
 
             if !seen_apps.insert(duplicate_key) {
                 continue;
             }
 
-            // =================================================
+            // ====================================================
             // SEARCH TEXT
-            // =================================================
+            // ====================================================
 
             let search_text = format!(
                 "{} {} {}",
                 name.to_lowercase(),
                 comment.to_lowercase(),
-                exec.to_lowercase(),
+                exec.to_lowercase()
             );
 
             apps.push(AppInfo {
@@ -1505,37 +1529,41 @@ fn load_desktop_apps() -> Vec<AppInfo> {
 fn application_directories() -> Vec<PathBuf> {
     let mut directories = Vec::new();
 
-    // User applications.
+    // ========================================================
+    // USER
+    // ========================================================
+
     if let Some(data_home) = env::var_os("XDG_DATA_HOME") {
         directories.push(PathBuf::from(data_home).join("applications"));
     } else if let Some(home) = env::var_os("HOME") {
         directories.push(PathBuf::from(home).join(".local/share/applications"));
     }
 
-    // XDG_DATA_DIRS.
+    // ========================================================
+    // SYSTEM
+    // ========================================================
+
     if let Some(data_dirs) = env::var_os("XDG_DATA_DIRS") {
         for directory in env::split_paths(&data_dirs) {
             directories.push(directory.join("applications"));
         }
-    } else {
-        directories.push(PathBuf::from("/usr/local/share/applications"));
-
-        directories.push(PathBuf::from("/usr/share/applications"));
     }
 
-    // Fallbacks.
     directories.push(PathBuf::from("/usr/local/share/applications"));
 
     directories.push(PathBuf::from("/usr/share/applications"));
 
-    // Deduplicate.
+    // ========================================================
+    // DEDUP
+    // ========================================================
+
     let mut result = Vec::new();
 
-    let mut seen = HashSet::new();
+    let mut seen: HashSet<PathBuf> = HashSet::new();
 
-    for path in directories {
-        if seen.insert(path.clone()) {
-            result.push(path);
+    for directory in directories {
+        if seen.insert(directory.clone()) {
+            result.push(directory);
         }
     }
 
@@ -1547,9 +1575,9 @@ fn application_directories() -> Vec<PathBuf> {
 // ============================================================
 
 fn parse_desktop_entry(data: &str) -> Option<HashMap<String, String>> {
-    let mut map = HashMap::new();
+    let mut map: HashMap<String, String> = HashMap::new();
 
-    let mut in_desktop_entry = false;
+    let mut in_entry = false;
 
     for raw_line in data.lines() {
         let line = raw_line.trim();
@@ -1559,20 +1587,20 @@ fn parse_desktop_entry(data: &str) -> Option<HashMap<String, String>> {
         }
 
         if line == "[Desktop Entry]" {
-            in_desktop_entry = true;
+            in_entry = true;
 
             continue;
         }
 
         if line.starts_with('[') {
-            if in_desktop_entry {
+            if in_entry {
                 break;
             }
 
             continue;
         }
 
-        if !in_desktop_entry {
+        if !in_entry {
             continue;
         }
 
@@ -1587,7 +1615,7 @@ fn parse_desktop_entry(data: &str) -> Option<HashMap<String, String>> {
 }
 
 // ============================================================
-// SPLIT KEY VALUE
+// KEY VALUE
 // ============================================================
 
 fn split_key_value(line: &str) -> Option<(&str, &str)> {
@@ -1599,13 +1627,11 @@ fn split_key_value(line: &str) -> Option<(&str, &str)> {
         return None;
     }
 
-    let value = &line[position + 1..];
-
-    Some((key, value))
+    Some((key, &line[position + 1..]))
 }
 
 // ============================================================
-// UNESCAPE DESKTOP VALUE
+// UNESCAPE
 // ============================================================
 
 fn unescape_desktop_value(value: &str) -> String {
@@ -1621,29 +1647,20 @@ fn unescape_desktop_value(value: &str) -> String {
         }
 
         match chars.next() {
-            Some('s') => {
-                result.push(' ');
-            }
+            Some('s') => result.push(' '),
 
-            Some('n') => {
-                result.push('\n');
-            }
+            Some('n') => result.push('\n'),
 
-            Some('t') => {
-                result.push('\t');
-            }
+            Some('t') => result.push('\t'),
 
-            Some('r') => {
-                result.push('\r');
-            }
+            Some('r') => result.push('\r'),
 
-            Some('\\') => {
+            Some('\\') => result.push('\\'),
+
+            Some(other) => {
                 result.push('\\');
-            }
 
-            Some(c) => {
-                result.push('\\');
-                result.push(c);
+                result.push(other);
             }
 
             None => {
@@ -1662,7 +1679,7 @@ fn unescape_desktop_value(value: &str) -> String {
 fn localized_value(entry: &HashMap<String, String>, base: &str) -> Option<String> {
     let locale = current_locale();
 
-    let mut candidates = Vec::new();
+    let mut candidates: Vec<String> = Vec::new();
 
     if !locale.is_empty() {
         candidates.push(locale.clone());
@@ -1680,7 +1697,7 @@ fn localized_value(entry: &HashMap<String, String>, base: &str) -> Option<String
         }
     }
 
-    let mut seen = HashSet::new();
+    let mut seen: HashSet<String> = HashSet::new();
 
     for locale in candidates {
         if !seen.insert(locale.clone()) {
@@ -1700,7 +1717,7 @@ fn localized_value(entry: &HashMap<String, String>, base: &str) -> Option<String
 }
 
 // ============================================================
-// CURRENT LOCALE
+// LOCALE
 // ============================================================
 
 fn current_locale() -> String {
@@ -1720,12 +1737,9 @@ fn current_locale() -> String {
 // ============================================================
 
 fn parse_bool(value: Option<&String>) -> bool {
-    matches!(
-        value
-            .map(|x| x.trim())
-            .map(|x| { x.eq_ignore_ascii_case("true",) }),
-        Some(true)
-    )
+    value
+        .map(|x| x.trim())
+        .is_some_and(|x| x.eq_ignore_ascii_case("true"))
 }
 
 // ============================================================
@@ -1734,10 +1748,6 @@ fn parse_bool(value: Option<&String>) -> bool {
 
 fn desktop_environment_allows(entry: &HashMap<String, String>) -> bool {
     let current = current_desktop_names();
-
-    // ========================================================
-    // ONLY SHOW IN
-    // ========================================================
 
     if let Some(value) = entry.get("OnlyShowIn") {
         let allowed = split_semicolon_list(value);
@@ -1752,10 +1762,6 @@ fn desktop_environment_allows(entry: &HashMap<String, String>) -> bool {
             return false;
         }
     }
-
-    // ========================================================
-    // NOT SHOW IN
-    // ========================================================
 
     if let Some(value) = entry.get("NotShowIn") {
         let blocked = split_semicolon_list(value);
@@ -1777,25 +1783,48 @@ fn desktop_environment_allows(entry: &HashMap<String, String>) -> bool {
 // ============================================================
 
 fn current_desktop_names() -> Vec<String> {
-    let mut desktops = Vec::new();
+    let mut desktops: Vec<String> = Vec::new();
+
+    // --------------------------------------------------------
+    // XDG_CURRENT_DESKTOP
+    // --------------------------------------------------------
 
     if let Ok(value) = env::var("XDG_CURRENT_DESKTOP") {
         for item in value.split(':') {
             let item = item.trim();
 
-            if !item.is_empty() {
+            if item.is_empty() {
+                continue;
+            }
+
+            if !desktops
+                .iter()
+                .any(|existing: &String| existing.eq_ignore_ascii_case(item))
+            {
                 desktops.push(item.to_string());
             }
         }
     }
 
+    // --------------------------------------------------------
+    // XDG_SESSION_DESKTOP
+    // --------------------------------------------------------
+
     if let Ok(value) = env::var("XDG_SESSION_DESKTOP") {
         let value = value.trim();
 
-        if !value.is_empty() {
+        if !value.is_empty()
+            && !desktops
+                .iter()
+                .any(|existing: &String| existing.eq_ignore_ascii_case(value))
+        {
             desktops.push(value.to_string());
         }
     }
+
+    // --------------------------------------------------------
+    // Hyprland fallback
+    // --------------------------------------------------------
 
     if desktops.is_empty() && env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some() {
         desktops.push("Hyprland".to_string());
@@ -1818,7 +1847,7 @@ fn split_semicolon_list(value: &str) -> Vec<String> {
 }
 
 // ============================================================
-// FUZZY SCORE
+// FUZZY SEARCH
 // ============================================================
 
 fn fuzzy_score(query: &str, text: &str) -> Option<i32> {
@@ -1826,29 +1855,29 @@ fn fuzzy_score(query: &str, text: &str) -> Option<i32> {
         return Some(0);
     }
 
-    // ========================================================
-    // EXACT MATCH
-    // ========================================================
+    // --------------------------------------------------------
+    // Exact substring
+    // --------------------------------------------------------
 
     if let Some(position) = text.find(query) {
         let position = i32::try_from(position).unwrap_or(i32::MAX);
 
-        return Some(10_000i32.saturating_sub(position));
+        return Some(10_000_i32.saturating_sub(position.saturating_mul(2)));
     }
 
-    // ========================================================
-    // FUZZY CHARACTER MATCH
-    // ========================================================
+    // --------------------------------------------------------
+    // Character fuzzy match
+    // --------------------------------------------------------
 
     let mut query_iter = query.chars();
 
     let mut current = query_iter.next();
 
-    let mut score = 0i32;
+    let mut score: i32 = 0;
 
-    let mut consecutive = 0i32;
+    let mut consecutive: i32 = 0;
 
-    let mut previous = None;
+    let mut previous: Option<char> = None;
 
     for (index, ch) in text.chars().enumerate() {
         let Some(target) = current else {
